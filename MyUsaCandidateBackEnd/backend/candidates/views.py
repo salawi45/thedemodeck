@@ -13,8 +13,10 @@ from .serializers import CandidateSerializer, IssueSerializer, CandidateIssueSer
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
 from .filters import CandidateFilter
-from django.http import JsonResponse
+from django.http import JsonResponse 
 import django_filters
+from django.db.models import Count
+from itertools import combinations
 
 
 class CandidateViewSet(viewsets.ModelViewSet):
@@ -257,8 +259,7 @@ def link_candidate_issues(request):
 
     return Response({"linked": linked})
 
-from rest_framework.decorators import api_view
-from rest_framework.response import Response  # <- Capital "R"
+
 
 @api_view(['GET'])
 def get_candidate_issues_by_id(request, id):
@@ -270,4 +271,59 @@ def get_candidate_issues_by_id(request, id):
         for ci in CandidateIssue.objects.select_related('candidate', 'issue').filter(candidate__id=id)
     ]
     return Response(data)
+
+@api_view(['GET'])
+def get_similar_candidates(request, id):
+    """Get similar candidates for a given candidate ID"""
+    similar_candidates = CandidateSimilarity.objects.select_related('similar').filter(
+        candidate_id=id
+    ).order_by('-score')[:5]  # Get top 5 similar candidates
+    
+    data = [
+        {
+            "id": sim.similar.id,
+            "label": sim.similar.label,
+            "party_qid": sim.similar.party_qid,
+            "ideology_qid": sim.similar.ideology_qid,
+            "photo_url": sim.similar.photo_url,
+            "similarity_score": sim.score
+        }
+        for sim in similar_candidates
+    ]
+    return Response(data)
+
+@api_view(['POST'])
+def calculate_similarity_scores(request):
+    """Calculate and update similarity scores between candidates based on shared issues"""
+    # Get all candidates
+    candidates = Candidate.objects.all()
+    
+    # Clear existing similarity scores
+    CandidateSimilarity.objects.all().delete()
+    
+    # For each pair of candidates
+    for candidate1, candidate2 in combinations(candidates, 2):
+        # Get their issues
+        issues1 = set(CandidateIssue.objects.filter(candidate=candidate1).values_list('issue_id', flat=True))
+        issues2 = set(CandidateIssue.objects.filter(candidate=candidate2).values_list('issue_id', flat=True))
+        
+        # Calculate Jaccard similarity
+        if issues1 or issues2:  # Only calculate if at least one candidate has issues
+            intersection = len(issues1.intersection(issues2))
+            union = len(issues1.union(issues2))
+            similarity_score = intersection / union if union > 0 else 0
+            
+            # Create similarity records in both directions
+            CandidateSimilarity.objects.create(
+                candidate=candidate1,
+                similar=candidate2,
+                score=similarity_score
+            )
+            CandidateSimilarity.objects.create(
+                candidate=candidate2,
+                similar=candidate1,
+                score=similarity_score
+            )
+    
+    return Response({"message": "Similarity scores updated successfully"})
 
