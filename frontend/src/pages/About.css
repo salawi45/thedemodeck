@@ -1,0 +1,28 @@
+.fade-in {
+  opacity: 0;
+  transform: translateY(30px);
+  animation: fadeInUp 0.8s ease-out 0.1s forwards;
+}
+
+@keyframes fadeInUp {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.hover-lift {
+  transition: transform 0.25s cubic-bezier(.4,2,.6,1), box-shadow 0.25s cubic-bezier(.4,2,.6,1);
+}
+.hover-lift:hover, .hover-lift:focus {
+  transform: translateY(-8px) scale(1.03);
+  box-shadow: 0 0.5rem 1.5rem rgba(0,0,0,0.12), 0 0.125rem 0.5rem rgba(0,0,0,0.08);
+  z-index: 2;
+}
+
+.button-hover {
+  transition: transform 0.18s cubic-bezier(.4,2,.6,1);
+}
+.button-hover:hover, .button-hover:focus {
+  transform: scale(1.045);
+} 

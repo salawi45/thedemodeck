@@ -138,7 +138,8 @@ USE_TZ = True
 # Wikidata SPARQL endpoint URL
 WIKIDATA_SPARQL_ENDPOINT = "https://query.wikidata.org/sparql"
 
-
+#Congress Api Key
+CONGRESS_API_KEY = "OAicOESck6jxu1bG0bfHuBH3r499onecjhw6P4Mi"
 
 
 # Static files (CSS, JavaScript, Images)

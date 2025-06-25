@@ -90,7 +90,7 @@ function CandidateList() {
       <SearchAndFilter onFilterChange={handleFilterChange} />
 
       {loading ? (
-        <div className="d-flex justify-content-center align-items-center py-5">
+        <div className="d-flex justify-content-center align-items-center py-5 fade-in">
           <div className="text-center">
             <div className="spinner-border text-primary mb-3" role="status">
               <span className="visually-hidden">Loading...</span>
@@ -99,7 +99,7 @@ function CandidateList() {
           </div>
         </div>
       ) : error ? (
-        <div className="d-flex justify-content-center align-items-center py-5">
+        <div className="d-flex justify-content-center align-items-center py-5 fade-in">
           <div className="text-center">
             <svg
               width="48"
@@ -133,7 +133,7 @@ function CandidateList() {
           </div>
         </div>
       ) : candidates.length === 0 ? (
-        <div className="d-flex justify-content-center align-items-center py-5">
+        <div className="d-flex justify-content-center align-items-center py-5 fade-in">
           <div className="text-center">
             <svg
               width="64"
@@ -167,7 +167,7 @@ function CandidateList() {
           </div>
         </div>
       ) : (
-        <div className="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+        <div className="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 fade-in">
           {candidates.map((candidate) => (
             <div key={candidate.id} className="col">
               <CandidateCard candidate={candidate} />

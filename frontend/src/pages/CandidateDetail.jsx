@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { fetchCandidateById } from "../services/api";
+import { fetchCandidateById, fetchCandidateBills, fetchCandidateVotes } from "../services/api";
+import BillCard from "../components/BillCard";
+import VoteCard from "../components/VoteCard";
 
 function CandidateDetail() {
   const { id } = useParams();
@@ -11,6 +13,9 @@ function CandidateDetail() {
   const [error, setError] = useState(null);
   const [data, setData] = useState([]);
   const [similar, setSimilar] = useState([]);
+  const [bills, setBills] = useState([]);
+  const [votes, setVotes] = useState([]);
+  const [activeTab, setActiveTab] = useState('overview');
   
   useEffect(() => {
     fetch(`http://127.0.0.1:8000/api/candidate/${id}/similar/`)
@@ -45,6 +50,21 @@ function CandidateDetail() {
         setLoading(true);
         const data = await fetchCandidateById(id);
         setCandidate(data);
+        
+        // Load bills and votes
+        try {
+          const billsData = await fetchCandidateBills(id);
+          setBills(billsData);
+        } catch (err) {
+          console.error("Error loading bills:", err);
+        }
+        
+        try {
+          const votesData = await fetchCandidateVotes(id);
+          setVotes(votesData);
+        } catch (err) {
+          console.error("Error loading votes:", err);
+        }
       } catch (err) {
         setError("Failed to load candidate details");
         console.error(err);
@@ -139,6 +159,102 @@ function CandidateDetail() {
     );
   }
 
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'bills':
+        return (
+          <div>
+            <h3 className="mb-3">Sponsored Bills</h3>
+            {bills.length === 0 ? (
+              <p className="text-muted">No bills sponsored by this candidate.</p>
+            ) : (
+              <div className="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+                {bills.map((bill) => (
+                  <div key={bill.id} className="col">
+                    <BillCard bill={bill} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      
+      case 'votes':
+        return (
+          <div>
+            <h3 className="mb-3">Voting Record</h3>
+            {votes.length === 0 ? (
+              <p className="text-muted">No voting record available for this candidate.</p>
+            ) : (
+              <div className="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+                {votes.map((vote) => (
+                  <div key={vote.id} className="col">
+                    <VoteCard vote={vote} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      
+      case 'issues':
+        return (
+          <div>
+            <h3 className="mb-3">Issues & Positions</h3>
+            {data.length === 0 ? (
+              <p className="text-muted">No issues data available for this candidate.</p>
+            ) : (
+              <div className="row">
+                {data.map((item, index) => (
+                  <div key={index} className="col-md-6 mb-3">
+                    <div className="card">
+                      <div className="card-body">
+                        <h6 className="card-title">{item.issue}</h6>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      
+      default:
+        return (
+          <div>
+            <h3 className="mb-3">Overview</h3>
+            <div className="row">
+              <div className="col-md-6">
+                <h5>Personal Information</h5>
+                <ul className="list-unstyled">
+                  <li><strong>Age:</strong> {calculateAge(candidate.dob)}</li>
+                  <li><strong>Date of Birth:</strong> {formatDate(candidate.dob)}</li>
+                  <li><strong>Last Updated:</strong> {formatDate(candidate.last_updated)}</li>
+                  {candidate.bioguide_id && (
+                    <li><strong>Bioguide ID:</strong> {candidate.bioguide_id}</li>
+                  )}
+                </ul>
+              </div>
+              <div className="col-md-6">
+                <h5>Political Information</h5>
+                <ul className="list-unstyled">
+                  <li><strong>Party:</strong> {candidate.party_qid || 'Unknown'}</li>
+                  <li><strong>Ideology:</strong> {candidate.ideology_qid || 'Unknown'}</li>
+                </ul>
+              </div>
+            </div>
+            
+            {candidate.description && (
+              <div className="mt-4">
+                <h5>Description</h5>
+                <p>{candidate.description}</p>
+              </div>
+            )}
+          </div>
+        );
+    }
+  };
+
   return (
     <div className="container py-4">
       <Link to="/" className="btn btn-link text-decoration-none mb-4 d-inline-flex align-items-center gap-2">
@@ -154,7 +270,7 @@ function CandidateDetail() {
         Back to all candidates
       </Link>
 
-      <div className="card shadow-sm">
+      <div className="card shadow-sm fade-in hover-lift">
         <div className="card-body">
           <div className="row align-items-center mb-4">
             <div className="col-auto">
@@ -198,200 +314,95 @@ function CandidateDetail() {
                 {candidate.party_qid && (
                   <span className="badge bg-primary">{candidate.party_qid}</span>
                 )}
-                {candidate.dob && (
-                  <span className="badge bg-secondary">
-                    Age {calculateAge(candidate.dob)}
-                  </span>
+                {candidate.ideology_qid && (
+                  <span className="badge bg-secondary">{candidate.ideology_qid}</span>
                 )}
               </div>
             </div>
           </div>
 
-          {/* Issues Section */}
-          <div className="mb-4">
-            <h3 className="h4 mb-3">Political Issues</h3>
-            {data && data.length > 0 ? (
-              <div className="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
-                {data.map((issue) => (
-                  <div key={issue.id} className="col">
-                    <div className="card h-100">
-                      <div className="card-body">
-                        <h4 className="card-title h6 mb-0">{issue.issue}</h4>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-muted">No issues found for this candidate.</p>
-            )}
-          </div>
+          {/* Navigation Tabs */}
+          <ul className="nav nav-tabs mb-4" id="candidateTabs" role="tablist">
+            <li className="nav-item" role="presentation">
+              <button
+                className={`nav-link ${activeTab === 'overview' ? 'active' : ''}`}
+                onClick={() => setActiveTab('overview')}
+              >
+                Overview
+              </button>
+            </li>
+            <li className="nav-item" role="presentation">
+              <button
+                className={`nav-link ${activeTab === 'bills' ? 'active' : ''}`}
+                onClick={() => setActiveTab('bills')}
+              >
+                Bills ({bills.length})
+              </button>
+            </li>
+            <li className="nav-item" role="presentation">
+              <button
+                className={`nav-link ${activeTab === 'votes' ? 'active' : ''}`}
+                onClick={() => setActiveTab('votes')}
+              >
+                Votes ({votes.length})
+              </button>
+            </li>
+            <li className="nav-item" role="presentation">
+              <button
+                className={`nav-link ${activeTab === 'issues' ? 'active' : ''}`}
+                onClick={() => setActiveTab('issues')}
+              >
+                Issues ({data.length})
+              </button>
+            </li>
+          </ul>
 
-          {/* Similar Candidates Section */}
-          <div className="mb-4">
-            <h3 className="h4 mb-3">Similar Candidates</h3>
-            {similar && similar.length > 0 ? (
-              <div className="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
-                {similar.map((similarCandidate) => (
-                  <div key={similarCandidate.id} className="col">
-                    <Link 
-                      to={`/candidate/${similarCandidate.id}`} 
-                      className="card h-100 text-decoration-none"
-                    >
-                      <div className="card-body">
-                        <div className="d-flex align-items-center gap-3">
-                          <img
-                            src={similarCandidate.photo_url || "https://via.placeholder.com/150x150/667eea/ffffff?text=No+Photo"}
-                            alt={similarCandidate.label}
-                            className="rounded-circle"
-                            style={{ width: "50px", height: "50px", objectFit: "cover" }}
-                            onError={(e) => {
-                              e.target.onerror = null;
-                              e.target.src = "https://via.placeholder.com/150x150/667eea/ffffff?text=No+Photo";
-                            }}
-                          />
-                          <div>
-                            <h4 className="h6 mb-1">{similarCandidate.label}</h4>
-                            {similarCandidate.party_qid && (
-                              <span className="badge bg-primary mb-2">{similarCandidate.party_qid}</span>
-                            )}
-                            <div className="small text-muted">
-                              Similarity: {Math.round(similarCandidate.similarity_score * 100)}%
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </Link>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-muted">No similar candidates found.</p>
-            )}
-          </div>
-
-          {candidate.description && (
-            <div className="mb-4">
-              <h3 className="h4 mb-3 d-flex align-items-center gap-2">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                  <path
-                    d="M12 2L2 7L12 12L22 7L12 2Z"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <path
-                    d="M2 17L12 22L22 17"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <path
-                    d="M2 12L12 17L22 12"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-                About
-              </h3>
-              <p className="text-muted">{candidate.description}</p>
-            </div>
-          )}
-
-          <div className="mb-4">
-            <h3 className="h4 mb-3 d-flex align-items-center gap-2">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <path
-                  d="M16 4H18C19.1046 4 20 4.89543 20 6V18C20 19.1046 19.1046 20 18 20H6C4.89543 20 4 19.1046 4 18V6C4 4.89543 4.89543 4 6 4H8M16 4V2M16 4V6M8 4V2M8 4V6M8 8H16M8 12H16M8 16H10"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
-              </svg>
-              Personal Information
-            </h3>
-            <div className="row row-cols-1 row-cols-md-2 g-3">
-              <div className="col">
-                <div className="card h-100">
-                  <div className="card-body">
-                    <h5 className="card-title h6 text-muted mb-2">Age</h5>
-                    <p className="card-text mb-0">
-                      {candidate.dob ? calculateAge(candidate.dob) : "Unknown"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {candidate.dob && (
-                <div className="col">
-                  <div className="card h-100">
-                    <div className="card-body">
-                      <h5 className="card-title h6 text-muted mb-2">Date of Birth</h5>
-                      <p className="card-text mb-0">{formatDate(candidate.dob)}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="col">
-                <div className="card h-100">
-                  <div className="card-body">
-                    <h5 className="card-title h6 text-muted mb-2">Political Party</h5>
-                    <p className="card-text mb-0">{candidate.party_qid || "Unknown"}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="col">
-                <div className="card h-100">
-                  <div className="card-body">
-                    <h5 className="card-title h6 text-muted mb-2">Political Ideology</h5>
-                    <p className="card-text mb-0">{candidate.ideology_qid || "Unknown"}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="col">
-                <div className="card h-100">
-                  <div className="card-body">
-                    <h5 className="card-title h6 text-muted mb-2">Wikidata ID</h5>
-                    <p className="card-text mb-0">{candidate.cqid}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <h3 className="h4 mb-3 d-flex align-items-center gap-2">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <circle
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                />
-                <polyline
-                  points="12,6 12,12 16,14"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-              Last Updated
-            </h3>
-            <p className="text-muted mb-0">
-              {new Date(candidate.last_updated).toLocaleString()}
-            </p>
+          {/* Tab Content */}
+          <div className="tab-content">
+            {renderTabContent()}
           </div>
         </div>
       </div>
+
+      {/* Similar Candidates */}
+      {similar.length > 0 && (
+        <div className="mt-5">
+          <h3 className="mb-4">Similar Candidates</h3>
+          <div className="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+            {similar.map((candidate) => (
+              <div key={candidate.id} className="col">
+                <Link to={`/candidate/${candidate.id}`} className="text-decoration-none">
+                  <div className="card h-100 shadow-sm hover-lift transition">
+                    <div className="card-body p-3">
+                      <div className="text-center mb-3">
+                        <img
+                          src={candidate.photo_url || "https://via.placeholder.com/100"}
+                          alt={candidate.label}
+                          className="rounded-circle"
+                          style={{ width: "80px", height: "80px", objectFit: "cover" }}
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = "https://via.placeholder.com/100?text=No+Image";
+                          }}
+                        />
+                      </div>
+                      <div className="text-center">
+                        <h6 className="card-title mb-1">{candidate.label}</h6>
+                        <p className="text-muted small mb-2">
+                          Similarity: {(candidate.similarity_score * 100).toFixed(1)}%
+                        </p>
+                        {candidate.party_qid && (
+                          <span className="badge bg-primary">{candidate.party_qid}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

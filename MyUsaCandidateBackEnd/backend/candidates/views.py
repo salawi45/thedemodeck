@@ -8,12 +8,14 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from datetime import date
 from SPARQLWrapper import SPARQLWrapper, JSON
-from .models import Candidate, Issue, CandidateIssue, CandidateSimilarity
-from .serializers import CandidateSerializer, IssueSerializer, CandidateIssueSerializer, CandidateSimilaritySerializer
+from .models import Candidate, Issue, CandidateIssue, CandidateSimilarity, Bill, Vote
+from .serializers import CandidateSerializer, IssueSerializer, CandidateIssueSerializer, CandidateSimilaritySerializer, BillSerializer, VoteSerializer
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
 from .filters import CandidateFilter
 from django.http import JsonResponse 
+from django.conf import settings
+import requests
 import django_filters
 from django.db.models import Count
 from itertools import combinations
@@ -28,7 +30,21 @@ class CandidateViewSet(viewsets.ModelViewSet):
     ordering_fields = ['label', 'dob', 'last_updated']
     # In your Django views.py
 
+    @action(detail=True, methods=['get'])
+    def bills(self, request, pk=None):
+        """Get bills sponsored by a candidate"""
+        candidate = self.get_object()
+        bills = Bill.objects.filter(sponsor=candidate)
+        serializer = BillSerializer(bills, many=True)
+        return Response(serializer.data)
 
+    @action(detail=True, methods=['get'])
+    def votes(self, request, pk=None):
+        """Get voting record for a candidate"""
+        candidate = self.get_object()
+        votes = Vote.objects.filter(candidate=candidate).select_related('bill')
+        serializer = VoteSerializer(votes, many=True)
+        return Response(serializer.data)
 
     # @action(detail=False, methods=['post'])
     # def fetch_from_wikidata(self, request):
@@ -326,4 +342,325 @@ def calculate_similarity_scores(request):
             )
     
     return Response({"message": "Similarity scores updated successfully"})
+
+def get_recent_bills(request):
+    url = "https://api.congress.gov/v3/bill"
+    headers = {
+        "X-Api-Key": settings.CONGRESS_API_KEY
+    }
+
+    response = requests.get(url, headers=headers)
+
+    if response.status_code == 200:
+        return JsonResponse(response.json())
+    else:
+        return JsonResponse({'error': 'Failed to fetch bills'}, status=response.status_code)
+
+class BillViewSet(viewsets.ModelViewSet):
+    queryset = Bill.objects.all()
+    serializer_class = BillSerializer
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
+    search_fields = ['title', 'bill_id', 'sponsor__label']
+    ordering_fields = ['introduced_date', 'last_action_date', 'congress']
+    filterset_fields = ['congress', 'bill_type', 'status']
+
+    @action(detail=True, methods=['get'])
+    def votes(self, request, pk=None):
+        """Get all votes for a specific bill"""
+        bill = self.get_object()
+        votes = Vote.objects.filter(bill=bill).select_related('candidate')
+        serializer = VoteSerializer(votes, many=True)
+        return Response(serializer.data)
+
+class VoteViewSet(viewsets.ModelViewSet):
+    queryset = Vote.objects.all()
+    serializer_class = VoteSerializer
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
+    search_fields = ['candidate__label', 'bill__title']
+    ordering_fields = ['vote_date']
+    filterset_fields = ['vote_position', 'chamber', 'congress']
+
+@api_view(['POST'])
+def update_candidates_with_bioguide_ids(request):
+    """Update candidates with their Bioguide IDs from Wikidata"""
+    sparql = SPARQLWrapper("https://query.wikidata.org/sparql")
+    
+    # Query to get candidates and their Bioguide IDs
+    sparql.setQuery("""
+    SELECT ?candidate ?candidateLabel ?bioguideId WHERE {
+        ?candidate wdt:P31 wd:Q5;          # instance of human
+             wdt:P106 wd:Q82955;     # occupation: politician
+             wdt:P27 wd:Q30;         # country: United States
+             wdt:P1157 ?bioguideId.  # US Congress Bio ID
+
+        SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+    }
+    """)
+    sparql.setReturnFormat(JSON)
+    results = sparql.query().convert()
+
+    updated = 0
+    for result in results["results"]["bindings"]:
+        candidate_qid = result["candidate"]["value"].split("/")[-1]
+        bioguide_id = result["bioguideId"]["value"]
+        candidate_label = result.get("candidateLabel", {}).get("value", "Unknown")
+
+        try:
+            candidate = Candidate.objects.get(cqid=candidate_qid)
+            candidate.bioguide_id = bioguide_id
+            candidate.save()
+            updated += 1
+            print(f"Updated {candidate_label} with Bioguide ID: {bioguide_id}")
+        except Candidate.DoesNotExist:
+            print(f"Candidate {candidate_qid} not found in database")
+        except Exception as e:
+            print(f"Error updating {candidate_qid}: {str(e)}")
+
+    return Response({"updated": updated})
+
+
+@api_view(['POST'])
+def fetch_bills_from_congress(request):
+    """Fetch bills from Congress.gov API and store in database"""
+    congress = request.data.get('congress', 118)  # 118 is current Congress
+    bill_type = request.data.get('bill_type', 'hr')  # Default to House bills
+    
+    url = f"https://api.congress.gov/v3/bill"
+    headers = {
+        "X-Api-Key": settings.CONGRESS_API_KEY
+    }
+    
+    params = {
+        'congress': congress,
+        'billType': bill_type,
+        'format': 'json',
+        'limit': 100  
+    }
+
+    try:
+        response = requests.get(url, headers=headers, params=params)
+        response.raise_for_status()
+        data = response.json()
+        
+        created = updated = 0
+        for bill_data in data.get('bills', []):
+            try:
+                # Extract bill information
+                bill_id = bill_data.get('billId')
+                title = bill_data.get('title', '')
+                short_title = bill_data.get('shortTitle', {}).get('title', '')
+                summary = bill_data.get('summary', '')
+                
+                # Extract sponsor information
+                sponsor_data = bill_data.get('sponsors', [{}])[0] if bill_data.get('sponsors') else {}
+                sponsor_bioguide_id = sponsor_data.get('bioguideId')
+                
+                # Extract dates
+                introduced_date = bill_data.get('introducedDate')
+                last_action_date = bill_data.get('latestAction', {}).get('actionDate')
+                last_action_text = bill_data.get('latestAction', {}).get('text', '')
+                
+                # Parse bill ID components
+                bill_parts = bill_id.split('-') if bill_id else []
+                bill_type_code = bill_parts[0][:2] if bill_parts else ''
+                bill_number = int(bill_parts[0][2:]) if len(bill_parts) > 0 and len(bill_parts[0]) > 2 else 0
+                
+                # Find sponsor candidate if bioguide_id exists
+                sponsor_candidate = None
+                if sponsor_bioguide_id:
+                    try:
+                        sponsor_candidate = Candidate.objects.get(bioguide_id=sponsor_bioguide_id)
+                    except Candidate.DoesNotExist:
+                        pass
+                
+                # Create or update bill
+                bill, created_flag = Bill.objects.update_or_create(
+                    bill_id=bill_id,
+                    defaults={
+                        'congress': congress,
+                        'bill_type': bill_type_code,
+                        'bill_number': bill_number,
+                        'title': title,
+                        'short_title': short_title,
+                        'summary': summary,
+                        'sponsor_bioguide_id': sponsor_bioguide_id,
+                        'sponsor': sponsor_candidate,
+                        'introduced_date': introduced_date,
+                        'last_action_date': last_action_date,
+                        'last_action_text': last_action_text,
+                        'status': bill_data.get('latestAction', {}).get('actionBy', ''),
+                        'congress_gov_url': bill_data.get('url', ''),
+                    }
+                )
+                
+                if created_flag:
+                    created += 1
+                else:
+                    updated += 1
+                    
+            except Exception as e:
+                print(f"Error processing bill {bill_id}: {str(e)}")
+                continue
+        
+        return Response({
+            "created": created,
+            "updated": updated,
+            "total_processed": created + updated
+        })
+        
+    except requests.RequestException as e:
+        return Response({"error": f"Failed to fetch bills: {str(e)}"}, status=500)
+
+
+@api_view(['POST'])
+def fetch_votes_from_congress(request):
+    """Fetch votes from Congress.gov API and store in database"""
+    congress = request.data.get('congress', 118)
+    chamber = request.data.get('chamber', 'house') 
+    
+    url = f"https://api.congress.gov/v3/vote"
+    headers = {
+        "X-Api-Key": settings.CONGRESS_API_KEY
+    }
+    
+    params = {
+        'congress': congress,
+        'chamber': chamber,
+        'format': 'json',
+        'limit': 50  
+    }
+
+    try:
+        response = requests.get(url, headers=headers, params=params)
+        response.raise_for_status()
+        data = response.json()
+        
+        created = updated = 0
+        for vote_data in data.get('votes', []):
+            try:
+                # Extract vote information
+                roll_call = vote_data.get('roll')
+                vote_date = vote_data.get('date')
+                chamber_code = vote_data.get('chamber')
+                session = vote_data.get('session')
+                
+                # Get bill information
+                bill_data = vote_data.get('bill', {})
+                bill_id = bill_data.get('billId')
+                
+                if not bill_id:
+                    continue  # Skip votes not associated with bills
+                
+                # Get or create bill
+                try:
+                    bill = Bill.objects.get(bill_id=bill_id)
+                except Bill.DoesNotExist:
+                    # Create a minimal bill record if it doesn't exist
+                    bill_parts = bill_id.split('-') if bill_id else []
+                    bill_type_code = bill_parts[0][:2] if bill_parts else ''
+                    bill_number = int(bill_parts[0][2:]) if len(bill_parts) > 0 and len(bill_parts[0]) > 2 else 0
+                    
+                    bill = Bill.objects.create(
+                        bill_id=bill_id,
+                        congress=congress,
+                        bill_type=bill_type_code,
+                        bill_number=bill_number,
+                        title=f"Bill {bill_id}",
+                    )
+                
+                # Process individual votes
+                votes_data = vote_data.get('votes', {})
+                for vote_position, voters in votes_data.items():
+                    if vote_position in ['Yea', 'Nay', 'Present', 'Not Voting']:
+                        for voter in voters:
+                            bioguide_id = voter.get('bioguideId')
+                            if bioguide_id:
+                                try:
+                                    candidate = Candidate.objects.get(bioguide_id=bioguide_id)
+                                    
+                                    # Create or update vote record
+                                    vote, created_flag = Vote.objects.update_or_create(
+                                        bill=bill,
+                                        candidate=candidate,
+                                        roll_call=roll_call,
+                                        defaults={
+                                            'vote_position': vote_position,
+                                            'vote_date': vote_date,
+                                            'chamber': chamber_code,
+                                            'congress': congress,
+                                            'session': session,
+                                        }
+                                    )
+                                    
+                                    if created_flag:
+                                        created += 1
+                                    else:
+                                        updated += 1
+                                        
+                                except Candidate.DoesNotExist:
+                                    print(f"Candidate with Bioguide ID {bioguide_id} not found")
+                                    continue
+                    
+            except Exception as e:
+                print(f"Error processing vote {roll_call}: {str(e)}")
+                continue
+        
+        return Response({
+            "created": created,
+            "updated": updated,
+            "total_processed": created + updated
+        })
+        
+    except requests.RequestException as e:
+        return Response({"error": f"Failed to fetch votes: {str(e)}"}, status=500)
+
+
+@api_view(['GET'])
+def get_candidate_bills(request, candidate_id):
+    """Get bills sponsored by a specific candidate"""
+    try:
+        candidate = Candidate.objects.get(id=candidate_id)
+        bills = Bill.objects.filter(sponsor=candidate)
+        serializer = BillSerializer(bills, many=True)
+        return Response(serializer.data)
+    except Candidate.DoesNotExist:
+        return Response({"error": "Candidate not found"}, status=404)
+
+
+@api_view(['GET'])
+def get_candidate_votes(request, candidate_id):
+    """Get voting record for a specific candidate"""
+    try:
+        candidate = Candidate.objects.get(id=candidate_id)
+        votes = Vote.objects.filter(candidate=candidate).select_related('bill').order_by('-vote_date')
+        serializer = VoteSerializer(votes, many=True)
+        return Response(serializer.data)
+    except Candidate.DoesNotExist:
+        return Response({"error": "Candidate not found"}, status=404)
+
+
+@api_view(['GET'])
+def get_bill_votes(request, bill_id):
+    """Get all votes for a specific bill"""
+    try:
+        bill = Bill.objects.get(id=bill_id)
+        votes = Vote.objects.filter(bill=bill).select_related('candidate').order_by('candidate__label')
+        serializer = VoteSerializer(votes, many=True)
+        return Response(serializer.data)
+    except Bill.DoesNotExist:
+        return Response({"error": "Bill not found"}, status=404)
+
+
+def get_recent_bills(request):
+    url = "https://api.congress.gov/v3/bill"
+    headers = {
+        "X-Api-Key": settings.CONGRESS_API_KEY
+    }
+
+    response = requests.get(url, headers=headers)
+
+    if response.status_code == 200:
+        return JsonResponse(response.json())
+    else:
+        return JsonResponse({'error': 'Failed to fetch bills'}, status=response.status_code)
 

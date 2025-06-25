@@ -10,5 +10,7 @@ export const ENDPOINTS = {
   issues: "/issues/",
   candidateIssues: "/candidate-issues/",
   candidateSimilarities: "/candidate-similarities/",
+  bills: "/bills/",
+  votes: "/votes/",
 }
 

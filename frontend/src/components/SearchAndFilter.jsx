@@ -114,7 +114,7 @@ function SearchAndFilter({ onFilterChange }) {
   const activeFilterCount = Object.keys(filters).length
 
   return (
-    <div className="card shadow-sm mb-4">
+    <div className="card shadow-sm mb-4 fade-in hover-lift">
       <div className="card-body">
         <div className="d-flex align-items-center gap-3 mb-3">
           <div className="input-group flex-grow-1">

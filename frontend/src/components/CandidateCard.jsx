@@ -17,8 +17,8 @@ function CandidateCard({ candidate }) {
   }
 
   return (
-    <Link to={`/candidate/${candidate.id}`} className="text-decoration-none">
-      <div className="card h-100 shadow-sm transition">
+    <Link to={`/candidate/${candidate.id}`} className="text-decoration-none fade-in button-hover">
+      <div className="card h-100 shadow-sm hover-lift transition">
         <div className="card-body p-3">
           <div className="text-center mb-3">
             <img

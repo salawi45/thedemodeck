@@ -1,11 +1,12 @@
 import { Link } from "react-router-dom";
+import "./About.css";
 
 function About() {
   return (
     <div className="container py-5">
       <div className="row justify-content-center">
         <div className="col-lg-8">
-          <div className="card shadow-sm">
+          <div className="card shadow-sm fade-in hover-lift">
             <div className="card-body p-4">
               <h1 className="h2 mb-4">About Political Candidates</h1>
               
@@ -23,7 +24,7 @@ function About() {
                 <h2 className="h4 mb-3">What We Offer</h2>
                 <div className="row g-4">
                   <div className="col-md-6">
-                    <div className="card h-100 border-0 bg-light">
+                    <div className="card h-100 border-0 bg-light hover-lift">
                       <div className="card-body">
                         <h3 className="h5 mb-3">
                           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="me-2">
@@ -45,7 +46,7 @@ function About() {
                   </div>
 
                   <div className="col-md-6">
-                    <div className="card h-100 border-0 bg-light">
+                    <div className="card h-100 border-0 bg-light hover-lift">
                       <div className="card-body">
                         <h3 className="h5 mb-3">
                           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="me-2">
@@ -115,7 +116,7 @@ function About() {
               </div>
 
               <div className="text-center mt-5">
-                <Link to="/" className="btn btn-primary">
+                <Link to="/" className="btn btn-primary button-hover">
                   Explore Candidates
                 </Link>
               </div>
