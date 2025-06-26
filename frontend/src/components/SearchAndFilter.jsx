@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 
-function SearchAndFilter({ onFilterChange }) {
+function SearchAndFilter({ onFilterChange, filterOptions = {} }) {
   const [searchText, setSearchText] = useState("")
   const [showFilters, setShowFilters] = useState(false)
   const [filters, setFilters] = useState({})
@@ -131,7 +131,7 @@ function SearchAndFilter({ onFilterChange }) {
             <input
               type="text"
               className="form-control border-start-0"
-              placeholder="Search candidates by name..."
+              placeholder={filterOptions.search || 'Search...'}
               value={searchText}
               onChange={handleSearch}
             />

@@ -7,43 +7,62 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         self.stdout.write('Starting similarity calculation...')
-        
-        # Get all candidates
-        candidates = Candidate.objects.all()
-        total_candidates = candidates.count()
+
+        candidates = list(Candidate.objects.all())
+        total_candidates = len(candidates)
         self.stdout.write(f'Found {total_candidates} candidates')
-        
-        # Clear existing similarity scores
+
+        # Clear existing similarities
         CandidateSimilarity.objects.all().delete()
         self.stdout.write('Cleared existing similarity scores')
-        
-        # For each pair of candidates
+
+        # Pre-fetch issues for all candidates to reduce DB hits
+        candidate_issues_map = {}
+        for candidate in candidates:
+            issue_ids = set(
+                CandidateIssue.objects.filter(candidate=candidate).values_list('issue_id', flat=True)
+            )
+            candidate_issues_map[candidate.id] = issue_ids
+
         pairs_processed = 0
+        batch_size = 1000
+        similarity_objects = []
+
         for candidate1, candidate2 in combinations(candidates, 2):
-            # Get their issues
-            issues1 = set(CandidateIssue.objects.filter(candidate=candidate1).values_list('issue_id', flat=True))
-            issues2 = set(CandidateIssue.objects.filter(candidate=candidate2).values_list('issue_id', flat=True))
-            
-            # Calculate Jaccard similarity
-            if issues1 or issues2:  # Only calculate if at least one candidate has issues
+            issues1 = candidate_issues_map.get(candidate1.id, set())
+            issues2 = candidate_issues_map.get(candidate2.id, set())
+
+            if issues1 or issues2:
                 intersection = len(issues1.intersection(issues2))
                 union = len(issues1.union(issues2))
                 similarity_score = intersection / union if union > 0 else 0
-                
-                # Create similarity records in both directions
-                CandidateSimilarity.objects.create(
-                    candidate=candidate1,
-                    similar=candidate2,
-                    score=similarity_score
-                )
-                CandidateSimilarity.objects.create(
-                    candidate=candidate2,
-                    similar=candidate1,
-                    score=similarity_score
-                )
-            
+
+                if similarity_score > 0:
+                    similarity_objects.append(
+                        CandidateSimilarity(
+                            candidate=candidate1,
+                            similar=candidate2,
+                            score=similarity_score
+                        )
+                    )
+                    similarity_objects.append(
+                        CandidateSimilarity(
+                            candidate=candidate2,
+                            similar=candidate1,
+                            score=similarity_score
+                        )
+                    )
+
             pairs_processed += 1
-            if pairs_processed % 100 == 0:
+
+            # Bulk insert in batches for performance
+            if pairs_processed % batch_size == 0:
+                CandidateSimilarity.objects.bulk_create(similarity_objects)
+                similarity_objects = []
                 self.stdout.write(f'Processed {pairs_processed} pairs...')
-        
-        self.stdout.write(self.style.SUCCESS(f'Successfully calculated similarities for {pairs_processed} candidate pairs')) 
+
+        # Insert any remaining objects
+        if similarity_objects:
+            CandidateSimilarity.objects.bulk_create(similarity_objects)
+
+        self.stdout.write(self.style.SUCCESS(f'Successfully calculated similarities for {pairs_processed} candidate pairs'))

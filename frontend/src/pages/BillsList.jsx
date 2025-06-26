@@ -212,6 +212,7 @@ function BillsList() {
           <SearchAndFilter 
             onFilterChange={handleFilterChange}
             filterOptions={{
+              search: 'Search bills by name, number, or title',
               congress: 'Congress',
               bill_type: 'Bill Type',
               status: 'Status'

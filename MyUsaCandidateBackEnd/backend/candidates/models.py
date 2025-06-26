@@ -11,6 +11,8 @@ class Candidate(models.Model):
     photo_url = models.URLField(blank=True, null=True)
     bioguide_id = models.CharField(max_length=10, blank=True, null=True, unique=True)  # Congress.gov Bioguide ID
     last_updated = models.DateTimeField(auto_now=True)
+    main_issues = models.TextField(blank=True, null=True)  # Comma-separated list of main issues
+    start_date = models.DateField(blank=True, null=True)
 
     def __str__(self):
         return self.label
