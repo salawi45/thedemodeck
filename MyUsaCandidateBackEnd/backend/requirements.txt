@@ -9,7 +9,7 @@ Django==5.1.6
 django-allauth==65.8.1
 django-cors-headers==4.7.0
 django-filter==25.1
-django-suit @ https://github.com/darklow/django-suit/tarball/v2#sha256=87ef7f5182d81b6f204e9a7fefab86d92f985a62b15901178168046a2252bd59
+django-suit @ https://github.com/darklow/django-suit/tarball/v2
 django-taggit==6.1.0
 djangorestframework==3.16.0
 dnspython==2.5.0
