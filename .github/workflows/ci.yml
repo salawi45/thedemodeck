@@ -21,13 +21,13 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd backend
+          cd MyUsaCandidateBackEnd
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
       - name: Run Django Tests
         run: |
-          cd backend
+          cd MyUsaCandidateBackEnd/backend
           python manage.py test
 
   frontend:
