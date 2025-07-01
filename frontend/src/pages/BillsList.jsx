@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { fetchBills } from '../services/api'
 import BillCard from '../components/BillCard'
 import SearchAndFilter from '../components/SearchAndFilter'
@@ -16,31 +16,26 @@ function BillsList() {
     hasPrevious: false
   })
 
-  useEffect(() => {
-    loadBills()
-  }, [filters, pagination.currentPage])
-
-  const loadBills = async () => {
+  const loadBills = useCallback(async () => {
     try {
       setLoading(true)
       const data = await fetchBills({
         ...filters,
         page: pagination.currentPage
       })
-      
+
       setBills(data.results || data)
-      
-      // Update pagination info
+
       if (data.count !== undefined) {
         setPagination(prev => ({
           ...prev,
           totalCount: data.count,
-          totalPages: Math.ceil(data.count / 25), // Assuming 25 items per page
+          totalPages: Math.ceil(data.count / 25),
           hasNext: !!data.next,
           hasPrevious: !!data.previous
         }))
       }
-      
+
       setError(null)
     } catch (err) {
       setError('Failed to load bills')
@@ -48,11 +43,15 @@ function BillsList() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [filters, pagination.currentPage])
+
+  useEffect(() => {
+    loadBills()
+  }, [loadBills])
 
   const handleFilterChange = (newFilters) => {
     setFilters(newFilters)
-    setPagination(prev => ({ ...prev, currentPage: 1 })) // Reset to first page when filtering
+    setPagination(prev => ({ ...prev, currentPage: 1 }))
   }
 
   const handlePageChange = (page) => {
@@ -71,89 +70,54 @@ function BillsList() {
       startPage = Math.max(1, endPage - maxVisiblePages + 1)
     }
 
-    // Previous button
     if (pagination.hasPrevious) {
       pages.push(
         <li key="prev" className="page-item">
-          <button
-            className="page-link"
-            onClick={() => handlePageChange(pagination.currentPage - 1)}
-            disabled={loading}
-          >
+          <button className="page-link" onClick={() => handlePageChange(pagination.currentPage - 1)} disabled={loading}>
             &laquo; Previous
           </button>
         </li>
       )
     }
 
-    // First page
     if (startPage > 1) {
       pages.push(
         <li key="first" className="page-item">
-          <button
-            className="page-link"
-            onClick={() => handlePageChange(1)}
-            disabled={loading}
-          >
+          <button className="page-link" onClick={() => handlePageChange(1)} disabled={loading}>
             1
           </button>
         </li>
       )
       if (startPage > 2) {
-        pages.push(
-          <li key="ellipsis1" className="page-item disabled">
-            <span className="page-link">...</span>
-          </li>
-        )
+        pages.push(<li key="ellipsis1" className="page-item disabled"><span className="page-link">...</span></li>)
       }
     }
 
-    // Page numbers
     for (let i = startPage; i <= endPage; i++) {
       pages.push(
         <li key={i} className={`page-item ${i === pagination.currentPage ? 'active' : ''}`}>
-          <button
-            className="page-link"
-            onClick={() => handlePageChange(i)}
-            disabled={loading}
-          >
-            {i}
-          </button>
+          <button className="page-link" onClick={() => handlePageChange(i)} disabled={loading}>{i}</button>
         </li>
       )
     }
 
-    // Last page
     if (endPage < pagination.totalPages) {
       if (endPage < pagination.totalPages - 1) {
-        pages.push(
-          <li key="ellipsis2" className="page-item disabled">
-            <span className="page-link">...</span>
-          </li>
-        )
+        pages.push(<li key="ellipsis2" className="page-item disabled"><span className="page-link">...</span></li>)
       }
       pages.push(
         <li key="last" className="page-item">
-          <button
-            className="page-link"
-            onClick={() => handlePageChange(pagination.totalPages)}
-            disabled={loading}
-          >
+          <button className="page-link" onClick={() => handlePageChange(pagination.totalPages)} disabled={loading}>
             {pagination.totalPages}
           </button>
         </li>
       )
     }
 
-    // Next button
     if (pagination.hasNext) {
       pages.push(
         <li key="next" className="page-item">
-          <button
-            className="page-link"
-            onClick={() => handlePageChange(pagination.currentPage + 1)}
-            disabled={loading}
-          >
+          <button className="page-link" onClick={() => handlePageChange(pagination.currentPage + 1)} disabled={loading}>
             Next &raquo;
           </button>
         </li>
@@ -162,12 +126,9 @@ function BillsList() {
 
     return (
       <nav aria-label="Bills pagination" className="mt-4">
-        <ul className="pagination justify-content-center">
-          {pages}
-        </ul>
+        <ul className="pagination justify-content-center">{pages}</ul>
         <div className="text-center text-muted mt-2">
-          Showing page {pagination.currentPage} of {pagination.totalPages} 
-          ({pagination.totalCount} total bills)
+          Showing page {pagination.currentPage} of {pagination.totalPages} ({pagination.totalCount} total bills)
         </div>
       </nav>
     )
@@ -175,13 +136,9 @@ function BillsList() {
 
   if (loading && bills.length === 0) {
     return (
-      <div className="container mt-4">
-        <div className="text-center">
-          <div className="spinner-border" role="status">
-            <span className="visually-hidden">Loading...</span>
-          </div>
-          <p className="mt-2">Loading bills...</p>
-        </div>
+      <div className="container mt-4 text-center">
+        <div className="spinner-border" role="status" />
+        <p className="mt-2">Loading bills...</p>
       </div>
     )
   }
@@ -189,9 +146,7 @@ function BillsList() {
   if (error && bills.length === 0) {
     return (
       <div className="container mt-4">
-        <div className="alert alert-danger" role="alert">
-          {error}
-        </div>
+        <div className="alert alert-danger">{error}</div>
       </div>
     )
   }
@@ -202,14 +157,10 @@ function BillsList() {
         <div className="col-12">
           <div className="d-flex justify-content-between align-items-center mb-4">
             <h1>Bills</h1>
-            {pagination.totalCount > 0 && (
-              <span className="text-muted">
-                Total: {pagination.totalCount.toLocaleString()} bills
-              </span>
-            )}
+            {pagination.totalCount > 0 && <span className="text-muted">Total: {pagination.totalCount.toLocaleString()} bills</span>}
           </div>
-          
-          <SearchAndFilter 
+
+          <SearchAndFilter
             onFilterChange={handleFilterChange}
             filterOptions={{
               search: 'Search bills by name, number, or title',
@@ -218,20 +169,16 @@ function BillsList() {
               status: 'Status'
             }}
           />
-          
+
           {loading && bills.length > 0 && (
             <div className="text-center my-3">
-              <div className="spinner-border spinner-border-sm" role="status">
-                <span className="visually-hidden">Loading...</span>
-              </div>
+              <div className="spinner-border spinner-border-sm" role="status" />
               <span className="ms-2">Loading more bills...</span>
             </div>
           )}
-          
+
           {bills.length === 0 && !loading ? (
-            <div className="text-center mt-4">
-              <p>No bills found.</p>
-            </div>
+            <div className="text-center mt-4"><p>No bills found.</p></div>
           ) : (
             <>
               <div className="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
@@ -241,7 +188,6 @@ function BillsList() {
                   </div>
                 ))}
               </div>
-              
               {renderPagination()}
             </>
           )}
@@ -251,4 +197,4 @@ function BillsList() {
   )
 }
 
-export default BillsList 
+export default BillsList
