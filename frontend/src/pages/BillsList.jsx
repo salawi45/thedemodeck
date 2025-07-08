@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { fetchBills } from '../services/api'
 import BillCard from '../components/BillCard'
-import SearchAndFilter from '../components/SearchAndFilter'
+import { SearchAndFilterBills } from '../components/SearchAndFilter';
 
 function BillsList() {
   const [bills, setBills] = useState([])
@@ -160,7 +160,7 @@ function BillsList() {
             {pagination.totalCount > 0 && <span className="text-muted">Total: {pagination.totalCount.toLocaleString()} bills</span>}
           </div>
 
-          <SearchAndFilter
+          <SearchAndFilterBills
             onFilterChange={handleFilterChange}
             filterOptions={{
               search: 'Search bills by name, number, or title',

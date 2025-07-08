@@ -12,6 +12,7 @@ export const fetchCandidates = async (filters = {}) => {
       if (filters.min_age) params.append("min_age", filters.min_age)
       if (filters.max_age) params.append("max_age", filters.max_age)
       if (filters.search) params.append("search", filters.search)
+      if (filters.chamber) params.append("chamber", filters.chamber)
 
       url += `?${params.toString()}`
     }
@@ -88,8 +89,22 @@ export const fetchBillById = async (id) => {
   }
 }
 
-// Alias for BillDetail component
-export const getBillDetail = fetchBillById
+// Only use the custom endpoint for single bill detail
+export const fetchBillByBillId = async (billId) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/bills/by-bill-id/${billId}/`)
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`)
+    }
+    return await response.json()
+  } catch (error) {
+    console.error(`Error fetching bill with bill_id ${billId}:`, error)
+    throw error
+  }
+}
+
+// Alias for BillDetail component (single bill detail only)
+export const getBillDetail = fetchBillByBillId
 
 export const fetchCandidateBills = async (candidateId) => {
   try {

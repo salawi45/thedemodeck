@@ -39,6 +39,11 @@ function CandidateCard({ candidate }) {
             {candidate.dob && <p className="text-muted mb-1">Age: {calculateAge(candidate.dob)}</p>}
             {candidate.party_qid && <p className="badge bg-primary mb-1">{candidate.party_qid}</p>}
             {candidate.ideology_qid && <p className="badge bg-secondary">{candidate.ideology_qid}</p>}
+            {candidate.chamber && (
+              <p className="badge bg-info text-dark mt-1">
+                {candidate.chamber === 'senate' ? 'Senate' : candidate.chamber === 'house' ? 'House of Representatives' : candidate.chamber}
+              </p>
+            )}
           </div>
         </div>
       </div>

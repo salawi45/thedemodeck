@@ -13,6 +13,7 @@ class Candidate(models.Model):
     last_updated = models.DateTimeField(auto_now=True)
     main_issues = models.TextField(blank=True, null=True)  # Comma-separated list of main issues
     start_date = models.DateField(blank=True, null=True)
+    chamber = models.CharField(max_length=20, choices=[('senate', 'Senate'), ('house', 'House of Representatives')], blank=True, null=True)
 
     def __str__(self):
         return self.label

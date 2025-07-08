@@ -25,7 +25,7 @@ class CandidateViewSet(viewsets.ModelViewSet):
     queryset = Candidate.objects.all()
     serializer_class = CandidateSerializer
     filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
-    filterset_fields = ['party_qid', 'ideology_qid']  # These will now filter by string values
+    filterset_fields = ['party_qid', 'ideology_qid', 'chamber']  # Added chamber
     search_fields = ['label', 'description', 'party_qid', 'ideology_qid']
     ordering_fields = ['label', 'dob', 'last_updated']
     # In your Django views.py
@@ -105,10 +105,16 @@ def get_parties(request):
 
 @api_view(['GET'])
 def get_ideologies(request):
-    """Get unique ideology values for filtering"""
-    ideologies = Candidate.objects.values_list('ideology_qid', flat=True).distinct()
-    ideologies = [i for i in ideologies if i]  # Remove None values
-    return Response(ideologies)
+    """Get unique ideology QIDs and their labels for filtering"""
+    qids = Candidate.objects.values_list('ideology_qid', flat=True).distinct()
+    qids = [i for i in qids if i]
+    # Try to get label from Issue model, fallback to QID
+    from .models import Issue
+    result = []
+    for qid in qids:
+        label = Issue.objects.filter(issue_qid=qid).values_list('issue_label', flat=True).first() or qid
+        result.append({'qid': qid, 'label': label})
+    return Response(result)
 
 
 
@@ -138,7 +144,7 @@ class CandidateFilter(django_filters.FilterSet):
 
     class Meta:
         model = Candidate
-        fields = ['party_qid', 'ideology_qid']
+        fields = ['party_qid', 'ideology_qid', 'chamber']  # Added chamber
 
     def filter_min_age(self, queryset, name, value):
         today = date.today()
@@ -359,18 +365,21 @@ def get_recent_bills(request):
 class BillViewSet(viewsets.ModelViewSet):
     queryset = Bill.objects.all()
     serializer_class = BillSerializer
+    lookup_field = 'bill_id'
+    lookup_value_regex = '[^/]+'  
     filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
     search_fields = ['title', 'bill_id', 'sponsor__label']
     ordering_fields = ['introduced_date', 'last_action_date', 'congress']
     filterset_fields = ['congress', 'bill_type', 'status']
 
     @action(detail=True, methods=['get'])
-    def votes(self, request, pk=None):
-        """Get all votes for a specific bill"""
+    def votes(self, request, bill_id=None):
         bill = self.get_object()
         votes = Vote.objects.filter(bill=bill).select_related('candidate')
         serializer = VoteSerializer(votes, many=True)
         return Response(serializer.data)
+
+
 
 class VoteViewSet(viewsets.ModelViewSet):
     queryset = Vote.objects.all()
@@ -641,11 +650,22 @@ def get_candidate_votes(request, candidate_id):
 
 @api_view(['GET'])
 def get_bill_votes(request, bill_id):
-    """Get all votes for a specific bill"""
+    """Get all votes for a specific bill by bill_id string (case-insensitive)"""
     try:
-        bill = Bill.objects.get(id=bill_id)
+        bill = Bill.objects.get(bill_id__iexact=bill_id)
         votes = Vote.objects.filter(bill=bill).select_related('candidate').order_by('candidate__label')
         serializer = VoteSerializer(votes, many=True)
+        return Response(serializer.data)
+    except Bill.DoesNotExist:
+        return Response({"error": "Bill not found"}, status=404)
+
+
+@api_view(['GET'])
+def get_bill_by_bill_id(request, bill_id):
+    """Get bill details by bill_id string (case-insensitive)"""
+    try:
+        bill = Bill.objects.get(bill_id__iexact=bill_id)
+        serializer = BillSerializer(bill)
         return Response(serializer.data)
     except Bill.DoesNotExist:
         return Response({"error": "Bill not found"}, status=404)

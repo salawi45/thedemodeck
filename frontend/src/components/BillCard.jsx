@@ -26,7 +26,7 @@ function BillCard({ bill }) {
   }
 
   return (
-    <Link to={`/bill/${bill.id}`} className="text-decoration-none fade-in button-hover">
+    <Link to={`/bill/${bill.bill_id}`} className="text-decoration-none fade-in button-hover">
       <div className="card h-100 shadow-sm hover-lift transition">
         <div className="card-body p-3">
           <div className="d-flex justify-content-between align-items-start mb-2">

@@ -20,7 +20,7 @@ const BillDetail = () => {
           getBillVotes(billId)
         ]);
         setBill(billData);
-        setVotes(votesData.results || []);
+        setVotes(votesData.results || votesData || []);
       } catch (err) {
         setError('Failed to load bill data');
         console.error('Error fetching bill data:', err);
