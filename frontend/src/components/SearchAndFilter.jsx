@@ -207,53 +207,12 @@ function SearchAndFilter({ onFilterChange, filterOptions = {} }) {
 
 export function SearchAndFilterBills({ onFilterChange, filterOptions = {} }) {
   const [searchText, setSearchText] = useState("");
-  const [filters, setFilters] = useState({});
-  const [showFilters, setShowFilters] = useState(false);
-
-  const BILL_TYPE_OPTIONS = [
-    { value: '', label: 'All Types' },
-    { value: 'hr', label: 'House Bill (HR)' },
-    { value: 's', label: 'Senate Bill (S)' },
-    { value: 'hjres', label: 'House Joint Resolution (HJRES)' },
-    { value: 'sjres', label: 'Senate Joint Resolution (SJRES)' },
-    // Add more as needed
-  ];
-  const STATUS_OPTIONS = [
-    { value: '', label: 'All Statuses' },
-    { value: 'Introduced', label: 'Introduced' },
-    { value: 'Passed House', label: 'Passed House' },
-    { value: 'Passed Senate', label: 'Passed Senate' },
-    { value: 'Enacted', label: 'Enacted' },
-    { value: 'Vetoed', label: 'Vetoed' },
-    { value: 'Failed', label: 'Failed' },
-    // Add more as needed
-  ];
 
   const handleSearch = (e) => {
     const text = e.target.value;
     setSearchText(text);
-    onFilterChange({ ...filters, search: text });
+    onFilterChange({ search: text });
   };
-
-  const updateFilter = (key, value) => {
-    setFilters((prev) => {
-      const newFilters = { ...prev, [key]: value };
-      if (!value) delete newFilters[key];
-      return newFilters;
-    });
-  };
-
-  const applyFilters = () => {
-    onFilterChange({ ...filters, search: searchText });
-  };
-
-  const resetFilters = () => {
-    setFilters({});
-    setSearchText("");
-    onFilterChange({});
-  };
-
-  const activeFilterCount = Object.keys(filters).length;
 
   return (
     <div className="card shadow-sm mb-4 fade-in hover-lift">
@@ -278,78 +237,7 @@ export function SearchAndFilterBills({ onFilterChange, filterOptions = {} }) {
               onChange={handleSearch}
             />
           </div>
-          <button
-            className="btn btn-outline-primary d-flex align-items-center gap-2"
-            onClick={() => setShowFilters(!showFilters)}
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <path
-                d="M3 4.6C3 4.03995 3 3.75992 3.10899 3.54601C3.20487 3.35785 3.35785 3.20487 3.54601 3.10899C3.75992 3 4.03995 3 4.6 3H19.4C19.9601 3 20.2401 3 20.454 3.10899C20.6422 3.20487 20.7951 3.35785 20.891 3.54601C21 3.75992 21 4.03995 21 4.6V6.33726C21 6.58185 21 6.70414 20.9724 6.81923C20.9479 6.92127 20.9075 7.01881 20.8526 7.10828C20.7908 7.2092 20.7043 7.29568 20.5314 7.46863L14.4686 13.5314C14.2957 13.7043 14.2092 13.7908 14.1474 13.8917C14.0925 13.9812 14.0521 14.0787 14.0276 14.1808C14 14.2959 14 14.4182 14 14.6627V17L10 21V14.6627C10 14.4182 10 14.2959 9.97237 14.1808C9.94787 14.0787 9.90747 13.9812 9.85264 13.8917C9.7908 13.7908 9.70432 13.7043 9.53137 13.5314L3.46863 7.46863C3.29568 7.29568 3.2092 7.2092 3.14736 7.10828C3.09253 7.01881 3.05213 6.92127 3.02763 6.81923C3 6.70414 3 6.58185 3 6.33726V4.6Z"
-                stroke="currentColor"
-                strokeWidth="2"
-              />
-            </svg>
-            Filters
-            {activeFilterCount > 0 && (
-              <span className="badge bg-primary rounded-pill">{activeFilterCount}</span>
-            )}
-          </button>
         </div>
-        {showFilters && (
-          <div className="border-top pt-3">
-            <div className="row g-4">
-              <div className="col-md-4">
-                <div className="mb-3">
-                  <h5 className="mb-3">Congress</h5>
-                  <input
-                    type="number"
-                    className="form-control"
-                    value={filters.congress || ''}
-                    onChange={e => updateFilter('congress', e.target.value)}
-                    placeholder="e.g. 118"
-                    min="1"
-                  />
-                </div>
-              </div>
-              <div className="col-md-4">
-                <div className="mb-3">
-                  <h5 className="mb-3">Bill Type</h5>
-                  <select
-                    className="form-select"
-                    value={filters.bill_type || ''}
-                    onChange={e => updateFilter('bill_type', e.target.value)}
-                  >
-                    {BILL_TYPE_OPTIONS.map(opt => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div className="col-md-4">
-                <div className="mb-3">
-                  <h5 className="mb-3">Status</h5>
-                  <select
-                    className="form-select"
-                    value={filters.status || ''}
-                    onChange={e => updateFilter('status', e.target.value)}
-                  >
-                    {STATUS_OPTIONS.map(opt => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-            <div className="d-flex justify-content-end gap-2 mt-3">
-              <button className="btn btn-outline-secondary" onClick={resetFilters}>
-                Reset All
-              </button>
-              <button className="btn btn-primary" onClick={applyFilters}>
-                Apply Filters
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
