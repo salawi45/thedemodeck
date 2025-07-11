@@ -1,34 +1,20 @@
 import { Link } from "react-router-dom"
+import LogoSVG from '../assets/demokraton_logo.svg';
 
 function Navbar() {
   return (
     <nav className="navbar navbar-expand-lg navbar-light bg-white border-bottom">
       <div className="container">
         <Link className="navbar-brand d-flex align-items-center gap-2" to="/">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-            <path
-              d="M12 2L2 7L12 12L22 7L12 2Z"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M2 17L12 22L22 17"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M2 12L12 17L22 12"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          Political Candidates
+          <img
+            src={LogoSVG}
+            alt="Δemokraton – data = wisedome"
+            style={{ height: '32px', width: 'auto' }}
+          />
+          <div className="d-flex flex-column">
+            <span>Δemokraton</span>
+            <small style={{ lineHeight: 1 }}>data = wisedome</small>
+          </div>
         </Link>
 
         <button
