@@ -9,12 +9,8 @@ function Navbar() {
           <img
             src={LogoSVG}
             alt="Δemokraton – data = wisedome"
-            style={{ height: '32px', width: 'auto' }}
-          />
-          <div className="d-flex flex-column">
-            <span>Δemokraton</span>
-            <small style={{ lineHeight: 1 }}>data = wisedome</small>
-          </div>
+            style={{ height: '72px', width: 'auto' }}
+          /> 
         </Link>
 
         <button
